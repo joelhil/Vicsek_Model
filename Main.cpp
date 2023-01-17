@@ -6,7 +6,7 @@
 #include <vector>
 
 
-// SDL2 framewrok class
+// SDL2 framework class
 class Framework{
 public:
     // Contructor which initialize the parameters.
