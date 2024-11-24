@@ -1,0 +1,1 @@
+/usr/bin/g++ -g -rdynamic CMakeFiles/SDL2test.dir/src/main.cpp.o -o SDL2test  -L/usr/lib/x86_64-linux-gnu  -lSDL2 -lSDL2 -lSDL2main 

@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/joelhildingsson/Dokument/programmering/cpp/projects/sdl2Test/build",
+  "command": "/usr/bin/g++  -I/usr/include/SDL2 -g -o CMakeFiles/SDL2test.dir/src/main.cpp.o -c /home/joelhildingsson/Dokument/programmering/cpp/projects/sdl2Test/src/main.cpp",
+  "file": "/home/joelhildingsson/Dokument/programmering/cpp/projects/sdl2Test/src/main.cpp",
+  "output": "CMakeFiles/SDL2test.dir/src/main.cpp.o"
+}
+]
