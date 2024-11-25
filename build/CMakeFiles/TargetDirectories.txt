@@ -1,3 +1,0 @@
-/home/joelhildingsson/Dokument/programmering/cpp/projects/sdl2Test/build/CMakeFiles/SDL2test.dir
-/home/joelhildingsson/Dokument/programmering/cpp/projects/sdl2Test/build/CMakeFiles/edit_cache.dir
-/home/joelhildingsson/Dokument/programmering/cpp/projects/sdl2Test/build/CMakeFiles/rebuild_cache.dir
