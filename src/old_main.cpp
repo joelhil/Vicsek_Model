@@ -39,11 +39,18 @@ private:
 
 
 
-void draw_pixel_white(SDL_Renderer *renderer,int x, int y){
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderDrawPoint(renderer, x, y);
-}
 
+//When drawing square, use -1 on both positions and -2 on width for grid net
+void draw_square_white(SDL_Renderer *renderer,int blCorner_x, int blCorner_y, int width_){
+    // Setting the color to be RED with 100% opaque (0% trasparent).
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    // Drawing square
+    for(int x=blCorner_x; x<=blCorner_x+width_; x++){
+        for(int y=blCorner_y; y<=blCorner_y+width_; y++){
+            SDL_RenderDrawPoint(renderer, x, y);
+        }
+    }
+}
 
 //When drawing square, use -1 on both positions and -2 on width for grid net
 void draw_circle_white(SDL_Renderer *renderer,int center_x, int center_y, int radius_){
@@ -61,6 +68,23 @@ void draw_circle_white(SDL_Renderer *renderer,int center_x, int center_y, int ra
         }
     }
 }
+
+void draw_circle_black(SDL_Renderer *renderer,int center_x, int center_y, int radius_){
+    // Setting the color to be RED with 100% opaque (0% trasparent).
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    // Drawing square
+    for(int x=center_x-radius_; x<=center_x+radius_; x++)
+    {
+        for(int y=center_y-radius_; y<=center_y+radius_; y++)
+        {
+            if ((std::pow(center_x-x,2) +  std::pow(center_y-y,2)) <= std::pow(radius_,2) )
+            {
+                    SDL_RenderDrawPoint(renderer, x, y);
+                }
+        }
+    }
+}
+
 
 
 // A particle has velocity and position both split into x and y directions
@@ -131,7 +155,7 @@ bool inRadius(float interactionRadius,float interactionRadius2, float posCenter[
        return false;
 
 
-    float diff = (posCenter[0]-posOther[0],2)*(posCenter[0]-posOther[0],2)+(posCenter[1]-posOther[1],2)*(posCenter[1]-posOther[1],2);
+    float diff = std::pow(posCenter[0]-posOther[0],2)+std::pow(posCenter[1]-posOther[1],2);
     if (diff < interactionRadius2)
     {
         return true;
@@ -209,15 +233,6 @@ int main(int argc, char * argv[]){
         //std::cout << "\n" << swarm[i].vel[0] << " " << swarm[i].vel[1];
     }
 
-
-    // Init our arrays
-    
-    //std::vector<float> posX(nParticles);
-    //std::vector<float> posY(nParticles);
-    //std::vector<float> velX(nParticles);
-    //std::vector<float> velY(nParticles);
-    //std::vector<float> angle(nParticles);
-
     //Create empty new swarm
     Particle* newSwarm = new Particle[nParticles];
 
@@ -285,8 +300,7 @@ int main(int argc, char * argv[]){
             swarm[i].pos[0] = newSwarm[i].pos[0];
             swarm[i].pos[1] = newSwarm[i].pos[1];
             swarm[i].updateVel(newSwarm[i].currentAngle,velocity);
-            //draw_circle_white(fw.renderer,swarm[i].pos[0],swarm[i].pos[1],radius);
-            draw_pixel_white(fw.renderer,swarm[i].pos[0],swarm[i].pos[1]);
+            draw_circle_white(fw.renderer,swarm[i].pos[0],swarm[i].pos[1],radius);
         }
         SDL_RenderPresent(fw.renderer);      // Update rendering
         SDL_PumpEvents();                 // Check if 'q' was pressed
