@@ -63,75 +63,16 @@ void draw_circle_white(SDL_Renderer *renderer,int center_x, int center_y, int ra
 }
 
 
-// A particle has velocity and position both split into x and y directions
-// Random start and angle is given to constructor since this was hard to
-// do otherwise.
-// Velocity is assumed to be in right direction before a random angle is
-// generetad and the particle velocity is rotated using rotaion matrix.
-class Particle{
-    public:
-        float pos[2];
-        float vel[2];
-        float currentAngle;
-
-        // Dummy constructor
-        Particle() {}
-
-        // Real constructor
-        Particle(float xMax, float yMax, float radius, float velocity,float xPos,float yPos,float angle)
-        {
-            pos[0] = xPos;
-            pos[1] = yPos;
-            //pos[1] = (pos[1]*yMax+xMax/2)/xMax;
-            pos[1]=pos[1]*yMax/xMax;
-
-            vel[0]=velocity*std::cos(angle);
-            vel[1]=velocity*std::sin(angle);
-            currentAngle = angle;
-
-        }
-
-        // Move position and draw new circle
-        void move_p(float xMax, float yMax)
-        {
-            pos[0]+=vel[0];
-            pos[1]+=vel[1];
-            if (pos[0] > xMax) {
-                pos[0]=0;
-            } else if (pos[0] < 0) {
-                pos[0] = xMax;
-            } else if (pos[1] > yMax) {
-                pos[1]=0;
-            } else if (pos[1] < 0) {
-                pos[1] = yMax;
-            }
-        }
-
-        // Change angle of velocity
-        void updateVel(float angle,float velocity){
-            vel[0]=velocity*std::cos(angle);
-            vel[1]=velocity*std::sin(angle);
-            currentAngle=angle;
-        }
-
-        void updateVelNew(float Vx, float Vy){
-            vel[0] = Vx;
-            vel[1] = Vy;
-        }
-
-};
-
-
-bool inRadius(float interactionRadius,float interactionRadius2, float posCenter[], float posOther[]){
+bool inRadius(float interactionRadius,float interactionRadius2, float x_pos, float y_pos,float x_pos_other,float y_pos_other){
     // Check if the point is outside square before checking circle
     // to get less computation for most points
-    if (posCenter[0] < posOther[0]-interactionRadius || posCenter[0] > posOther[0]+interactionRadius)
+    if (x_pos < x_pos_other-interactionRadius || x_pos > x_pos_other+interactionRadius)
        return false;
-    if (posCenter[1] < posOther[1]-interactionRadius || posCenter[1] > posOther[1]+interactionRadius)
+    if (y_pos < y_pos_other-interactionRadius || y_pos > y_pos_other+interactionRadius)
        return false;
 
 
-    float diff = (posCenter[0]-posOther[0],2)*(posCenter[0]-posOther[0],2)+(posCenter[1]-posOther[1],2)*(posCenter[1]-posOther[1],2);
+    float diff = (x_pos-x_pos_other)*(x_pos-x_pos_other)+(y_pos-y_pos_other)*(y_pos-y_pos_other);
     if (diff < interactionRadius2)
     {
         return true;
@@ -140,30 +81,30 @@ bool inRadius(float interactionRadius,float interactionRadius2, float posCenter[
     }
 }
 
-
 // Add copies of particles outside of bound so that a particle close to an edge
 // can interact with a particle on the opposite side of the periodic boundary
-void fillPadding(int i, std::vector<Particle> &outsiders, Particle swarm[], float xMax, float yMax, float interactionRadius) {
-    Particle p = swarm[i];
-    bool add = false;
+void fillPadding(std::vector<float> &posXPad, std::vector<float> &posYPad, 
+                 std::vector<float> &anglePad, float x_pos, float y_pos, float angle, 
+                 float xMax, float yMax, float interactionRadius) {
 
-    if (p.pos[0] + interactionRadius > xMax) {
-        p.pos[0] -= xMax;
-        add = true;
-    } else if (p.pos[0] - interactionRadius < 0) {
-        p.pos[0] += xMax;
-        add = true;
-    }
-    if (p.pos[1] + interactionRadius > yMax) {
-        p.pos[1] -= yMax;
-        add = true;
-    } else if (p.pos[1] - interactionRadius < 0) {
-        p.pos[1] += yMax;
-        add = true;
-    }
-
-    if (add) {
-        outsiders.push_back(p);
+    // Check for boundary interactions and add padded particles
+    if (x_pos + interactionRadius > xMax) {
+        posXPad.push_back(x_pos - xMax); // Wrap around X (right to left)
+        posYPad.push_back(y_pos);        // Same Y
+        anglePad.push_back(angle);
+    } else if (x_pos - interactionRadius < 0) {
+        posXPad.push_back(x_pos + xMax); // Wrap around X (left to right)
+        posYPad.push_back(y_pos);        // Same Y
+        anglePad.push_back(angle);
+    } 
+    if (y_pos + interactionRadius > yMax) {
+        posXPad.push_back(x_pos);        // Same X
+        posYPad.push_back(y_pos); // Wrap around Y (top to bottom)
+        anglePad.push_back(angle);
+    } else if (y_pos - interactionRadius < 0) {
+        posXPad.push_back(x_pos);        // Same X
+        posYPad.push_back(y_pos + yMax); // Wrap around Y (bottom to top)
+        anglePad.push_back(angle);
     }
 }
 
@@ -171,18 +112,16 @@ void fillPadding(int i, std::vector<Particle> &outsiders, Particle swarm[], floa
 int main(int argc, char * argv[]){
     // Creating the object by passing Height and Width value.
     // Physics variables
-    float height = 1200;
-    float width = 1200;
+    float height = 900;
+    float width = 900;
     float radius = 1;
     float velocity = 3;
-    int nParticles = 5000;
-
+    int nParticles = 2000;
 
     // Variables affecting behaviour
     float noise = 0.5;
     float interactionRadius = 15;
     float inRadiusSquared = interactionRadius*interactionRadius;
-
 
     //Create graphic window
     Framework fw(height, width);
@@ -192,35 +131,36 @@ int main(int argc, char * argv[]){
     std::random_device                  rand_dev;
     std::mt19937                        generator(rand_dev());
 
-    //std::array<Particle,10> swarm[0](width, height, radius, velocity, generator, renderer);
     std::uniform_real_distribution<float>  xRand(radius*2, width-radius*2);
     std::uniform_real_distribution<float>  wRand(-0.5, 0.5);
     float pi2 = 3.14159*2;
     std::uniform_real_distribution<float>  thetaRand(0, pi2);
 
 
-    // Initialize the swarm
-    Particle* swarm = new Particle[nParticles];
+    // Init our swarm arrays
+    std::vector<float> posX(nParticles);
+    std::vector<float> posY(nParticles);
+    std::vector<float> velX(nParticles);
+    std::vector<float> velY(nParticles);
+    std::vector<float> angles(nParticles);
+
     for (int i = 0; i<nParticles; i++){
-        float xPos = xRand(generator);
-        float yPos = xRand(generator) ;
-        float angle = thetaRand(generator);
-        swarm[i]=Particle(width, height, radius, velocity, xPos, yPos, angle);
-        //std::cout << "\n" << swarm[i].vel[0] << " " << swarm[i].vel[1];
+        posX[i] = xRand(generator);
+        posY[i] = xRand(generator); // Depending on screen size Y might have to be scaled
+        angles[i] = thetaRand(generator);
+        velX[i]=velocity*std::cos(angles[i]);
+        velY[i]=velocity*std::sin(angles[i]);
     }
 
+    // Attributes of updated particles
+    std::vector<float> newPosX(nParticles);
+    std::vector<float> newPosY(nParticles);
+    std::vector<float> newVelX(nParticles);
+    std::vector<float> newVelY(nParticles);
+    std::vector<float> newAngles(nParticles);
 
-    // Init our arrays
-    
-    //std::vector<float> posX(nParticles);
-    //std::vector<float> posY(nParticles);
-    //std::vector<float> velX(nParticles);
-    //std::vector<float> velY(nParticles);
-    //std::vector<float> angle(nParticles);
-
-    //Create empty new swarm
-    Particle* newSwarm = new Particle[nParticles];
-
+    // Padding (for interactions thorugh boundary)
+    std::vector<float> posXPad, posYPad, anglePad;
 
     // Main loop start here stops when key 'q' is pressed
     const Uint8* state = SDL_GetKeyboardState(nullptr);
@@ -230,41 +170,55 @@ int main(int argc, char * argv[]){
         SDL_SetRenderDrawColor(fw.renderer, 0, 0, 0, 255);
         SDL_RenderClear(fw.renderer);
 
-        std::vector <Particle> outsiders;
-
-        //New swarm create
-
+        float x_pos = 0;
+        float y_pos = 0;
+        float angle = 0;
         for (int i = 0; i<nParticles; i++){
-            //newSwarm[i]=Particle(width, height, radius, velocity, swarm[i].pos[0], swarm[i].pos[1], swarm[i].currentAngle, fw.renderer);
-            newSwarm[i] = swarm[i];
-            // Add particles close to edges and change position incase they affect interaction
-            fillPadding(i,outsiders,swarm,width,height,interactionRadius);
+            x_pos = posX[i];
+            y_pos = posY[i];
+            angle = angles[i];
+
+            newPosX[i] = x_pos;
+            newPosY[i] = y_pos;
+            newVelY[i] = velY[i];
+            newVelX[i] = velX[i];
+            newAngles[i] = angle;
+            fillPadding(posXPad, posYPad, anglePad, x_pos, y_pos, angle, width, height, interactionRadius);
         }
 
         // Move particles and calculate new angle of velocity
-        //#pragma omp parallel for num_threads(6)
+        float vX = 0;
+        float vY = 0;
+        int parts = 0;
+        float x_pos_other = 0;
+        float y_pos_other = 0;
+
         for (int i = 0; i<nParticles; i++){
-            float vX = 0;
-            float vY = 0;
-            int parts = 0;
+            vX = 0;
+            vY = 0;
+            parts = 0;
+
+            x_pos = posX[i];
+            y_pos = posY[i];
             // Check for interaction radius
             for (int j = 0; j<nParticles; j++){
-                if  (inRadius(interactionRadius,inRadiusSquared,swarm[i].pos,swarm[j].pos)){
-                    vX += swarm[j].vel[0];
-                    vY += swarm[j].vel[1];
-                    //std::cout << "\n" << sinSum << " , " << vY;
+                x_pos_other = posX[j];
+                y_pos_other = posY[j];
+                if  (inRadius(interactionRadius,inRadiusSquared, x_pos, y_pos, x_pos_other, y_pos_other)){
+                    vX += velX[j];
+                    vY += velY[j];
                     parts ++;
                 }
             }
-            for (int k = 0; k<outsiders.size();k++){
-                if  (inRadius(interactionRadius,inRadiusSquared,swarm[i].pos,outsiders[k].pos)){
-                    vX += outsiders[k].vel[0];
-                    vY += outsiders[k].vel[1];
+            for (int k = 0; k<posXPad.size(); k++){
+                x_pos_other = posXPad[k];
+                y_pos_other = posYPad[k];
+                if  (inRadius(interactionRadius,inRadiusSquared, x_pos, y_pos, x_pos_other, y_pos_other)){
+                    vX += velocity*std::cos(anglePad[k]);
+                    vY += velocity*std::sin(anglePad[k]);
                     parts ++;
                 }
-
             }
-
 
             // + wRand(generator)*noise;
             float newAngle = 0;
@@ -274,25 +228,44 @@ int main(int argc, char * argv[]){
             newAngle = std::atan2((vY),(vX));
             newAngle += wRand(generator)*noise;
 
-            newSwarm[i].updateVel(newAngle,velocity);
-            //newSwarm[i].updateVelNew(vX,vY);
-            newSwarm[i].move_p(width,height);
+            // Change angle and velocity of particle COPY
+            newVelX[i] = velocity*std::cos(newAngle);
+            newVelY[i] = velocity*std::sin(newAngle);
+            newAngles[i] = newAngle;
+
+            newPosX[i] += newVelX[i];
+            newPosY[i] += newVelY[i];
+
+            if (newPosX[i] > width) {
+                newPosX[i]=0;
+            } else if (newPosX[i] < 0) {
+                newPosX[i] = width;
+            } else if (newPosY[i] > height) {
+                newPosY[i]=0;
+            } else if (newPosY[i] < 0) {
+                newPosY[i] = height;
+            }
+            draw_pixel_white(fw.renderer,newPosX[i],newPosY[i]);
         }
 
-
+        std::swap(posX, newPosX);
+        std::swap(posY, newPosY);
+        std::swap(velX, newVelX);
+        std::swap(velY, newVelY);
+        std::swap(angles, newAngles);
         // Update values for original swarm and draw them
+        /* 
         for (int i = 0; i<nParticles; i++){
-            swarm[i].pos[0] = newSwarm[i].pos[0];
-            swarm[i].pos[1] = newSwarm[i].pos[1];
-            swarm[i].updateVel(newSwarm[i].currentAngle,velocity);
-            //draw_circle_white(fw.renderer,swarm[i].pos[0],swarm[i].pos[1],radius);
-            draw_pixel_white(fw.renderer,swarm[i].pos[0],swarm[i].pos[1]);
-        }
+            
+        } */
+        posXPad.clear();
+        posYPad.clear();
+        anglePad.clear();
+
         SDL_RenderPresent(fw.renderer);      // Update rendering
         SDL_PumpEvents();                 // Check if 'q' was pressed
-        SDL_Delay(0.01);
+        SDL_Delay(0.5);
         iteration++;
-
     }
 
     ///////////////////////////////////////////////////////////////////////
