@@ -6,8 +6,6 @@
 #include <iostream>
 #include <random>
 #include <vector>
-#include <algorithm>
-
 
 
 // SDL2 framework class
@@ -64,113 +62,24 @@ void draw_circle_white(SDL_Renderer *renderer,int center_x, int center_y, int ra
     }
 }
 
-// Define a struct for points
-struct Point {
-    float x, y;
-    int index; // Original index in the arrays for reference
-};
 
-// Define a class for the Quadtree
-class Quadtree {
-public:
-    // Define the boundary of the quadtree
-    struct Boundary {
-        float x, y; // Center of the boundary
-        float halfWidth, halfHeight; // Half-dimensions
-    } boundary;
+bool inRadius(float interactionRadius,float interactionRadius2, float x_pos, float y_pos,float x_pos_other,float y_pos_other){
+    // Check if the point is outside square before checking circle
+    // to get less computation for most points
+    if (x_pos < x_pos_other-interactionRadius || x_pos > x_pos_other+interactionRadius)
+       return false;
+    if (y_pos < y_pos_other-interactionRadius || y_pos > y_pos_other+interactionRadius)
+       return false;
 
-    int capacity; // Maximum points in a node before subdivision
-    std::vector<Point> points; // Points stored in this node
-    bool divided = false; // Whether this node is subdivided
-    Quadtree* northwest = nullptr;
-    Quadtree* northeast = nullptr;
-    Quadtree* southwest = nullptr;
-    Quadtree* southeast = nullptr;
 
-    // Constructor
-    Quadtree(Boundary boundary, int capacity)
-        : boundary(boundary), capacity(capacity) {}
-
-    ~Quadtree() {
-        delete northwest;
-        delete northeast;
-        delete southwest;
-        delete southeast;
+    float diff = (x_pos-x_pos_other)*(x_pos-x_pos_other)+(y_pos-y_pos_other)*(y_pos-y_pos_other);
+    if (diff < interactionRadius2)
+    {
+        return true;
+    } else {
+        return false;
     }
-
-    // Insert a point into the Quadtree
-    bool insert(const Point& point) {
-        // Check if the point is within the boundary
-        if (!contains(point)) return false;
-
-        // If there's space, add the point
-        if (points.size() < capacity) {
-            points.push_back(point);
-            return true;
-        }
-
-        // Otherwise, subdivide if necessary
-        if (!divided) subdivide();
-
-        // Insert into the appropriate quadrant
-        return northwest->insert(point) || northeast->insert(point) ||
-               southwest->insert(point) || southeast->insert(point);
-    }
-
-    // Query points within a radius
-    void query(float x, float y, float radius, std::vector<int>& found) const {
-        // Check if the search area intersects this boundary
-        if (!intersects(x, y, radius)) return;
-
-        // Check points in this node
-        for (const auto& point : points) {
-            float dx = x - point.x;
-            float dy = y - point.y;
-            if (dx * dx + dy * dy <= radius * radius) {
-                found.push_back(point.index);
-            }
-        }
-
-        // Query children if divided
-        if (divided) {
-            northwest->query(x, y, radius, found);
-            northeast->query(x, y, radius, found);
-            southwest->query(x, y, radius, found);
-            southeast->query(x, y, radius, found);
-        }
-    }
-
-private:
-    // Check if a point is within the boundary
-    bool contains(const Point& point) const {
-        return point.x >= boundary.x - boundary.halfWidth &&
-               point.x < boundary.x + boundary.halfWidth &&
-               point.y >= boundary.y - boundary.halfHeight &&
-               point.y < boundary.y + boundary.halfHeight;
-    }
-
-    // Check if a circle intersects the boundary
-    bool intersects(float x, float y, float radius) const {
-        float dx = std::max(std::abs(x - boundary.x) - boundary.halfWidth, 0.0f);
-        float dy = std::max(std::abs(y - boundary.y) - boundary.halfHeight, 0.0f);
-        return (dx * dx + dy * dy) <= radius * radius;
-    }
-
-    // Subdivide the Quadtree into four quadrants
-    void subdivide() {
-        float hw = boundary.halfWidth / 2.0f;
-        float hh = boundary.halfHeight / 2.0f;
-
-        northwest = new Quadtree({boundary.x - hw, boundary.y - hh, hw, hh}, capacity);
-        northeast = new Quadtree({boundary.x + hw, boundary.y - hh, hw, hh}, capacity);
-        southwest = new Quadtree({boundary.x - hw, boundary.y + hh, hw, hh}, capacity);
-        southeast = new Quadtree({boundary.x + hw, boundary.y + hh, hw, hh}, capacity);
-
-        divided = true;
-    }
-};
-
-
+}
 
 // Add copies of particles outside of bound so that a particle close to an edge
 // can interact with a particle on the opposite side of the periodic boundary
@@ -205,13 +114,13 @@ int main(int argc, char * argv[]){
     // Physics variables
     float height = 900;
     float width = 900;
-    float radius = 2;
-    float velocity = 2;
-    int nParticles = 7000;
+    float radius = 1;
+    float velocity = 3;
+    int nParticles = 2000;
 
     // Variables affecting behaviour
-    float noise = 0.6;
-    float interactionRadius = 10;
+    float noise = 0.5;
+    float interactionRadius = 20;
     float inRadiusSquared = interactionRadius*interactionRadius;
 
     //Create graphic window
@@ -224,8 +133,8 @@ int main(int argc, char * argv[]){
 
     std::uniform_real_distribution<float>  xRand(radius*2, width-radius*2);
     std::uniform_real_distribution<float>  wRand(-0.5, 0.5);
-    float pi = 3.14159;
-    std::uniform_real_distribution<float>  thetaRand(-pi, pi);
+    float pi2 = 3.14159*2;
+    std::uniform_real_distribution<float>  thetaRand(0, pi2);
 
 
     // Init our swarm arrays
@@ -261,34 +170,20 @@ int main(int argc, char * argv[]){
         SDL_SetRenderDrawColor(fw.renderer, 0, 0, 0, 255);
         SDL_RenderClear(fw.renderer);
 
-        float x_pos = 0; // Maybe excessive amount of help variables?
+        float x_pos = 0;
         float y_pos = 0;
         float angle = 0;
         for (int i = 0; i<nParticles; i++){
-            x_pos = posX[i]; 
+            x_pos = posX[i];
             y_pos = posY[i];
             angle = angles[i];
 
-            newPosX[i] = x_pos; // This should be vectorized
+            newPosX[i] = x_pos;
             newPosY[i] = y_pos;
             newVelY[i] = velY[i];
             newVelX[i] = velX[i];
             newAngles[i] = angle;
             fillPadding(posXPad, posYPad, anglePad, x_pos, y_pos, angle, width, height, interactionRadius);
-        }
-
-        // Define the quadtree boundary
-        float halfWidth = width/2.0f; // Adjust to your simulation space
-        float halfHeight = height/2.0f;
-        Quadtree::Boundary boundary = {halfWidth, halfHeight, halfWidth, halfHeight};
-        Quadtree tree(boundary, 8); // Set capacity per node
-
-        // Insert points into the Quadtree
-        for (int i = 0; i < nParticles; ++i) {
-            tree.insert({posX[i], posY[i], i});
-        }
-        for (int i = 0; i < posXPad.size(); ++i) {
-            tree.insert({posXPad[i], posYPad[i], -1}); // Use -1 or similar for padding points
         }
 
         // Move particles and calculate new angle of velocity
@@ -298,45 +193,44 @@ int main(int argc, char * argv[]){
         float x_pos_other = 0;
         float y_pos_other = 0;
 
-        
         for (int i = 0; i<nParticles; i++){
-            std::vector<int> neighbors;
-            tree.query(posX[i], posY[i], interactionRadius, neighbors);
+            vX = 0;
+            vY = 0;
+            parts = 0;
 
-            float vX = 0.0f, vY = 0.0f;
-            int parts = 0;
-
-            // Process neighbors
-            // #pragma omp parallel for reduction(+:vX,vY)
-            for (int idx : neighbors) {
-                if (idx >= 0) { // Regular particle
-                    vX += velX[idx];
-                    vY += velY[idx];
-                } else { // Padding particle
-                    int padIdx = -(idx + 1);
-                    vX += velocity * std::cos(anglePad[padIdx]);
-                    vY += velocity * std::sin(anglePad[padIdx]);
+            x_pos = posX[i];
+            y_pos = posY[i];
+            // Check for interaction radius
+            for (int j = 0; j<nParticles; j++){
+                x_pos_other = posX[j];
+                y_pos_other = posY[j];
+                if  (inRadius(interactionRadius,inRadiusSquared, x_pos, y_pos, x_pos_other, y_pos_other)){
+                    vX += velX[j];
+                    vY += velY[j];
+                    parts ++;
                 }
-                ++parts;
+            }
+            for (int k = 0; k<posXPad.size(); k++){
+                x_pos_other = posXPad[k];
+                y_pos_other = posYPad[k];
+                if  (inRadius(interactionRadius,inRadiusSquared, x_pos, y_pos, x_pos_other, y_pos_other)){
+                    vX += velocity*std::cos(anglePad[k]);
+                    vY += velocity*std::sin(anglePad[k]);
+                    parts ++;
+                }
             }
 
-            /* // + wRand(generator)*noise;
+            // + wRand(generator)*noise;
             float newAngle = 0;
             vY = vY/(velocity*parts);// + sin(wRand(generator)*noise);
             vX = vX/(velocity*parts);// + cos(wRand(generator)*noise);
 
             newAngle = std::atan2((vY),(vX));
             newAngle += wRand(generator)*noise;
- */
-            // Update particle velocity and position
-            if (parts > 0) {
-                vX /= (velocity * parts);
-                vY /= (velocity * parts);
-            }
-            float newAngle = std::atan2(vY, vX) + wRand(generator) * noise;
 
-            newVelX[i] = velocity * std::cos(newAngle);
-            newVelY[i] = velocity * std::sin(newAngle);
+            // Change angle and velocity of particle COPY
+            newVelX[i] = velocity*std::cos(newAngle);
+            newVelY[i] = velocity*std::sin(newAngle);
             newAngles[i] = newAngle;
 
             newPosX[i] += newVelX[i];
@@ -370,7 +264,7 @@ int main(int argc, char * argv[]){
 
         SDL_RenderPresent(fw.renderer);      // Update rendering
         SDL_PumpEvents();                 // Check if 'q' was pressed
-        SDL_Delay(1);
+        SDL_Delay(0.5);
         iteration++;
     }
 

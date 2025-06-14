@@ -1,33 +1,25 @@
-# cmake_minimum_required(VERSION 3.0.0)
-# project(sdl2Test VERSION 0.1.0)
+cmake_minimum_required(VERSION 3.10)  # Update the minimum CMake version
+project(VicsekModel)
 
-# include(CTest)
-# enable_testing()
+# Define the executable
+add_executable(Vicsek_Model src/main.cpp)  # Replace with your actual source files
 
-# add_executable(sdl2Test src/main.cpp)
+# Check for OpenMP support
+find_package(OpenMP REQUIRED)
+if (OPENMP_FOUND)
+    target_link_libraries(Vicsek_Model PRIVATE OpenMP::OpenMP_CXX)
+    target_compile_options(Vicsek_Model PRIVATE ${OpenMP_CXX_FLAGS})
+endif()
 
-# set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-# set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-# include(CPack)
-
-
-
-cmake_minimum_required(VERSION 3.0.0)
-project(SDL2test VERSION 0.1.0)
-
-
+# Look for SDL2
 find_package(SDL2 REQUIRED)
 
-
+# Show SDL2 paths (optional, for debugging)
 message(STATUS "SDL2_INCLUDE_DIRS: ${SDL2_INCLUDE_DIRS}")
 message(STATUS "SDL2_LIBRARIES: ${SDL2_LIBRARIES}")
 
-
-add_executable(SDL2test src/main.cpp)
-
-
+# Include SDL2 headers
 include_directories(${SDL2_INCLUDE_DIRS})
-#target_link_libraries(SDL2test SDL2::SDL2 SDL2::SDL2main)
-target_link_libraries(SDL2test ${SDL2_LIBRARIES} -lSDL2 -lSDL2main)
 
-
+# Link SDL2 libraries using keyword form
+target_link_libraries(Vicsek_Model PRIVATE ${SDL2_LIBRARIES})
