@@ -10,7 +10,6 @@ Example of model running with parameters:
     float radius = 2;  
     float velocity = 2;  
     int nParticles = 7000;  
-
     
     // Variables affecting behaviour  
     float noise = 0.6;  
