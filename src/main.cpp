@@ -210,7 +210,7 @@ int main(int argc, char * argv[]){
     int nParticles = 7000;
 
     // Variables affecting behaviour
-    float noise = 0.6;
+    float noise = 0.7;
     float interactionRadius = 10;
     float inRadiusSquared = interactionRadius*interactionRadius;
 
